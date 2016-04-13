@@ -20,10 +20,12 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -41,6 +43,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.appcompat.BuildConfig;
 import android.util.Log;
@@ -92,6 +95,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
   private Controller mController;
   private GLSurfaceView mWorldView;
   private Handler mHandler;
+  private Runnable mRepeat;
   int milliOffset = 50;
 
   private static final int NO_BLUETOOTH_ID = 0;
@@ -115,14 +119,10 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
   private List<View> mRigidColorPalette;
   private List<View> mWaterColorPalette;
 
-  // The image view of the selected tool
-  private ImageView mSelected;
-  // The current open palette
-  private List<View> mOpenPalette = null;
+  private TextView liveMAFTextView;
 
   private boolean mUsingTool = false;
-  private static final int ANIMATION_DURATION = 300;
-  private int mDripDelay_ms = 200;
+  private int mDripDelay_ms = 99999;
 
   private PowerManager powerManager;
   private static boolean bluetoothDefaultIsEnable = false;
@@ -158,6 +158,8 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     String rigidColorPrefix = "color_rigid_";
     String waterColorPrefix = "color_water_";
 
+    liveMAFTextView = (TextView) findViewById(R.id.textViewMAF);
+
     powerManager =
             (PowerManager) this.getSystemService(Context.POWER_SERVICE);
 
@@ -168,12 +170,8 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       bluetoothDefaultIsEnable = btAdapter.isEnabled();
 
     Resources r = getResources();
-    // Look up all the different colors
     for (int i = 1; i <= r.getInteger(R.integer.num_colors); ++i) {
-      // Get color palette for rigid/pencil tools
-      // 1) Add color RGB values to mColorMap
-      // 2) Add appropriate images for tool
-      // 3) Add the color palette view to the color palette list
+
       int viewId = r.getIdentifier(
               rigidColorPrefix + i, "id", getPackageName());
       mColorMap.append(
@@ -188,10 +186,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
                       getPackageName()));
       mRigidColorPalette.add(findViewById(viewId));
 
-      // Get color palette for water tool
-      // 1) Add color RGB values to mColorMap
-      // 2) Add appropriate images for tool
-      // 3) Add the color palette view to the color palette list
       viewId = r.getIdentifier(
               waterColorPrefix + i, "id", getPackageName());
       mColorMap.append(
@@ -213,6 +207,9 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
 
     // Set the restart button's listener
     findViewById(R.id.button_restart).setOnTouchListener(this);
+    findViewById(R.id.beginSimulationImageView).setOnTouchListener(this);
+    findViewById(R.id.stopSimulationImageView).setOnTouchListener(this);
+    findViewById(R.id.settings).setOnTouchListener(this);
 
     Renderer renderer = Renderer.getInstance();
     Renderer.getInstance().init(this);
@@ -235,47 +232,26 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     }
 
     mWorldView.setRenderer(renderer);
-    renderer.startSimulation();
+    //renderer.startSimulation();
 
-    // Set default tool colors
-    Tool.getTool(ToolType.PENCIL).setColor(
-            getColor(getString(R.string.default_pencil_color), "color"));
-    Tool.getTool(ToolType.RIGID).setColor(
-            getColor(getString(R.string.default_rigid_color), "color"));
-    Tool.getTool(ToolType.WATER).setColor(
-            getColor(getString(R.string.default_water_color), "color"));
-
-    // Initialize the first selected tool
-    mSelected = (ImageView) findViewById(R.id.water);
-    onClickTool(mSelected);
-
-    if (BuildConfig.DEBUG) {
-      View fps = findViewById(R.id.fps);
-      fps.setVisibility(View.VISIBLE);
-      TextView versionView = (TextView) findViewById(R.id.version);
-      try {
-        sVersionName = "Version "
-                + getPackageManager()
-                .getPackageInfo(getPackageName(), 0).versionName;
-        versionView.setText(sVersionName);
-      } catch (NameNotFoundException e) {
-        // The name returned by getPackageName() must be found.
-      }
-    }
+    mController.setTool(ToolType.WATER);
 
     mHandler = new Handler();
 
-    final Runnable repeat = new Runnable() {
+    mRepeat = new Runnable() {
       public void run() {
         simulateDrip();
-        mHandler.postDelayed(this, mDripDelay_ms);
+        //if(simulationRunning){
+        Log.d("RCD",String.valueOf(mDripDelay_ms));
+          mHandler.postDelayed(this, mDripDelay_ms);
+        //}
+
       }
     };
 
-    mHandler.postDelayed(repeat, mDripDelay_ms);
-
-
   }
+
+
 
   static {
     RoboGuice.setUseAnnotationDatabases(false);
@@ -288,50 +264,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
 
   private boolean isServiceBound;
   private AbstractGatewayService service;
-  private final Runnable mQueueCommands = new Runnable() {
-    public void run() {
-      if (service != null && service.isRunning() && service.queueEmpty()) {
-        queueCommands();
-
-        double lat = 0;
-        double lon = 0;
-        double alt = 0;
-        final int posLen = 7;
-        if (mGpsIsStarted && mLastLocation != null) {
-          lat = mLastLocation.getLatitude();
-          lon = mLastLocation.getLongitude();
-          alt = mLastLocation.getAltitude();
-
-          StringBuilder sb = new StringBuilder();
-          sb.append("Lat: ");
-          sb.append(String.valueOf(mLastLocation.getLatitude()).substring(0, posLen));
-          sb.append(" Lon: ");
-          sb.append(String.valueOf(mLastLocation.getLongitude()).substring(0, posLen));
-          sb.append(" Alt: ");
-          sb.append(String.valueOf(mLastLocation.getAltitude()));
-          //gpsStatusTextView.setText(sb.toString());
-        }
-        if (prefs.getBoolean(ConfigActivity.UPLOAD_DATA_KEY, false)) {
-          // Upload the current reading by http
-          final String vin = prefs.getString(ConfigActivity.VEHICLE_ID_KEY, "UNDEFINED_VIN");
-          Map<String, String> temp = new HashMap<String, String>();
-          temp.putAll(commandResult);
-          ObdReading reading = new ObdReading(lat, lon, alt, System.currentTimeMillis(), vin, temp);
-          new UploadAsyncTask().execute(reading);
-
-        } else if (prefs.getBoolean(ConfigActivity.ENABLE_FULL_LOGGING_KEY, false)) {
-          // Write the current reading to CSV
-          final String vin = prefs.getString(ConfigActivity.VEHICLE_ID_KEY, "UNDEFINED_VIN");
-          Map<String, String> temp = new HashMap<String, String>();
-          temp.putAll(commandResult);
-          ObdReading reading = new ObdReading(lat, lon, alt, System.currentTimeMillis(), vin, temp);
-        }
-        commandResult.clear();
-      }
-      // run again in period defined in preferences
-      new Handler().postDelayed(mQueueCommands, ConfigActivity.getObdUpdatePeriod(prefs));
-    }
-  };
 
   private PowerManager.WakeLock wakeLock = null;
   private boolean preRequisites = true;
@@ -344,17 +276,18 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       isServiceBound = true;
       service = ((AbstractGatewayService.AbstractGatewayServiceBinder) binder).getService();
       service.setContext(VisualizeActivity.this);
+      renderSimulation(true);
       Log.d(TAG, "Starting live data");
-      log("Starting Live Data");
+
       try {
         service.startService();
-        //if (preRequisites)
-        //btStatusTextView.setText(getString(R.string.status_bluetooth_connected));
       } catch (IOException ioe) {
         Log.e(TAG, "Failure Starting live data");
         log("Failure Starting live data");
         //btStatusTextView.setText(getString(R.string.status_bluetooth_error_connecting));
         doUnbindService();
+        Toast.makeText(getApplicationContext(),"Failure connecting to Bluetooth Device",Toast.LENGTH_SHORT).show();
+        renderSimulation(false);
       }
     }
 
@@ -383,13 +316,16 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
   public void stateUpdate(final ObdCommandJob job) {
     final String cmdName = job.getCommand().getName();
     String cmdResult = "";
+    Log.d("RCD",cmdName);
     Toast.makeText(getApplicationContext(), cmdName, Toast.LENGTH_SHORT).show();
     final String cmdID = LookUpCommand(cmdName);
     if (cmdName.equals("Mass Air Flow")) {
       String result = job.getCommand().getCalculatedResult();
-      //mafOutputTextView.setText(result);
+      liveMAFTextView.setText(result);
       try {
-        //mafValue = Float.parseFloat(result);
+        Float floatResult = Float.parseFloat(result);
+        setDripRatefromMAF(floatResult);
+        Toast.makeText(getApplicationContext(),"Rate set to " + result,Toast.LENGTH_SHORT).show();
       } catch (Exception e) {
 
       }
@@ -408,14 +344,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     }
     commandResult.put(cmdID, cmdResult);
     //updateTripStatistic(job, cmdID);
-  }
-
-  private boolean gpsInit() {
-    return true;
-  }
-
-  private void updateTripStatistic(final ObdCommandJob job, final String cmdID) {
-
   }
 
   @Override
@@ -474,111 +402,35 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     }
   }
 
-  private void updateConfig() {
-    startActivity(new Intent(this, ConfigActivity.class));
-  }
-
   private void log(String text) {
-    //Toast.makeText(this,text,Toast.LENGTH_SHORT).show();
+    Toast.makeText(this,text,Toast.LENGTH_SHORT).show();
   }
 
-  public boolean onCreateOptionsMenu(Menu menu) {
-    menu.add(0, START_LIVE_DATA, 0, getString(R.string.menu_start_live_data));
-    menu.add(0, STOP_LIVE_DATA, 0, getString(R.string.menu_stop_live_data));
-    menu.add(0, GET_DTC, 0, getString(R.string.menu_get_dtc));
-    menu.add(0, TRIPS_LIST, 0, getString(R.string.menu_trip_list));
-    menu.add(0, SETTINGS, 0, getString(R.string.menu_settings));
-    return true;
-  }
-
-  public boolean onOptionsItemSelected(MenuItem item) {
-    switch (item.getItemId()) {
-      case START_LIVE_DATA:
-        startLiveData();
-        return true;
-      case STOP_LIVE_DATA:
-        stopLiveData();
-        return true;
-      case SETTINGS:
-        updateConfig();
-        return true;
-      case GET_DTC:
-        getTroubleCodes();
-        return true;
-      case TRIPS_LIST:
-        return true;
-    }
-    return false;
-  }
-
-  private void getTroubleCodes() {
-
-  }
 
   private void startLiveData() {
     Log.d(TAG, "Starting live data..");
-    log("startLiveData has been called");
+    Toast.makeText(getApplicationContext(),"Attempting connection to Bluetooth Device",Toast.LENGTH_SHORT).show();
+    //renderSimulation(true);
 
     //tl.removeAllViews(); //start fresh
     doBindService();
     log("doBindService has been called");
 
-    // start command execution
-    new Handler().post(mQueueCommands);
-
-    if (prefs.getBoolean(ConfigActivity.ENABLE_GPS_KEY, false))
-      gpsStart();
-    //else
-    //gpsStatusTextView.setText(getString(R.string.status_gps_not_used));
-
-    // screen won't turn off until wakeLock.release()
+        // screen won't turn off until wakeLock.release()
     wakeLock.acquire();
 
-    if (prefs.getBoolean(ConfigActivity.ENABLE_FULL_LOGGING_KEY, false)) {
-
-      // Create the CSV Logger
-      long mils = System.currentTimeMillis();
-      SimpleDateFormat sdf = new SimpleDateFormat("_dd_MM_yyyy_HH_mm_ss");
 
     }
-  }
 
   private void stopLiveData() {
     Log.d(TAG, "Stopping live data..");
-    log("Stopping Live Data");
+    Toast.makeText(getApplicationContext(),"Pausing Simulation",Toast.LENGTH_SHORT).show();
 
-    gpsStop();
-
+    Renderer.getInstance().pauseSimulation();
     doUnbindService();
-    endTrip();
 
     releaseWakeLockIfHeld();
 
-    final String devemail = prefs.getString(ConfigActivity.DEV_EMAIL_KEY, null);
-    if (devemail != null) {
-      DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-        @Override
-        public void onClick(DialogInterface dialog, int which) {
-          switch (which) {
-            case DialogInterface.BUTTON_POSITIVE:
-              ObdGatewayService.saveLogcatToFile(getApplicationContext(), devemail);
-              break;
-
-            case DialogInterface.BUTTON_NEGATIVE:
-              //No button clicked
-              break;
-          }
-        }
-      };
-      AlertDialog.Builder builder = new AlertDialog.Builder(this);
-      builder.setMessage("Where there issues?\nThen please send us the logs.\nSend Logs?").setPositiveButton("Yes", dialogClickListener)
-              .setNegativeButton("No", dialogClickListener).show();
-    }
-
-
-  }
-
-  protected void endTrip() {
   }
 
   protected Dialog onCreateDialog(int id) {
@@ -625,39 +477,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     return true;
   }
 
-  private void addTableRow(String id, String key, String val) {
-
-    TableRow tr = new TableRow(this);
-    ViewGroup.MarginLayoutParams params = new ViewGroup.MarginLayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-    params.setMargins(TABLE_ROW_MARGIN, TABLE_ROW_MARGIN, TABLE_ROW_MARGIN,
-            TABLE_ROW_MARGIN);
-    tr.setLayoutParams(params);
-
-    TextView name = new TextView(this);
-    name.setGravity(Gravity.RIGHT);
-    name.setText(key + ": ");
-    TextView value = new TextView(this);
-    value.setGravity(Gravity.LEFT);
-    value.setText(val);
-    value.setTag(id);
-    tr.addView(name);
-    tr.addView(value);
-    //tl.addView(tr, params);
-  }
-
-  /**
-   *
-   */
-  private void queueCommands() {
-    if (isServiceBound) {
-      for (ObdCommand Command : ObdConfig.getCommands()) {
-        if (prefs.getBoolean(Command.getName(), true))
-          service.queueJob(new ObdCommandJob(Command));
-      }
-    }
-  }
-
   private void doBindService() {
     if (!isServiceBound) {
       Log.d(TAG, "Binding OBD service..");
@@ -688,36 +507,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     }
   }
 
-  public void onLocationChanged(Location location) {
-    mLastLocation = location;
-  }
-
-  public void onStatusChanged(String provider, int status, Bundle extras) {
-  }
-
-  public void onProviderEnabled(String provider) {
-  }
-
-  public void onProviderDisabled(String provider) {
-  }
-
-  public void onGpsStatusChanged(int event) {
-
-    switch (event) {
-      case GpsStatus.GPS_EVENT_STARTED:
-        //gpsStatusTextView.setText(getString(R.string.status_gps_started));
-        break;
-      case GpsStatus.GPS_EVENT_STOPPED:
-        //gpsStatusTextView.setText(getString(R.string.status_gps_stopped));
-        break;
-      case GpsStatus.GPS_EVENT_FIRST_FIX:
-        //gpsStatusTextView.setText(getString(R.string.status_gps_fix));
-        break;
-      case GpsStatus.GPS_EVENT_SATELLITE_STATUS:
-        break;
-    }
-  }
-
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     if (requestCode == REQUEST_ENABLE_BT) {
@@ -737,35 +526,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
 
   }
 
-  /**
-   * Uploading asynchronous task
-   */
-  private class UploadAsyncTask extends AsyncTask<ObdReading, Void, Void> {
-
-    @Override
-    protected Void doInBackground(ObdReading... readings) {
-      Log.d(TAG, "Uploading " + readings.length + " readings..");
-      // instantiate reading service client
-      final String endpoint = prefs.getString(ConfigActivity.UPLOAD_URL_KEY, "");
-      RestAdapter restAdapter = new RestAdapter.Builder()
-              .setEndpoint(endpoint)
-              .build();
-      ObdService service = restAdapter.create(ObdService.class);
-      // upload readings
-      for (ObdReading reading : readings) {
-        try {
-          Response response = service.uploadReading(reading);
-          assert response.getStatus() == 200;
-        } catch (RetrofitError re) {
-          Log.e(TAG, re.toString());
-        }
-
-      }
-      Log.d(TAG, "Done");
-      return null;
-    }
-
-  }
 
   @Override
   protected void onPause() {
@@ -777,66 +537,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     releaseWakeLockIfHeld();
   }
 
-  private void togglePalette(View selectedTool, List<View> palette) {
-    // Save the previously opened palette as closePalette() will clear it.
-    List<View> prevOpenPalette = mOpenPalette;
-
-    // Always close the palette.
-    closePalette();
-
-    // If we are not selecting the same tool with an open color palette,
-    // open it.
-    if (!(selectedTool.getId() == mSelected.getId() &&
-            prevOpenPalette != null)) {
-      openPalette(palette);
-    }
-  }
-
-  private void openPalette(List<View> palette) {
-    if (mOpenPalette == null) {
-      float d = getResources().getDimension(R.dimen.color_width);
-      for (int i = 0; i < palette.size(); i++) {
-        Animation slideIn =
-                new TranslateAnimation(-d * (i + 1), 0, 0, 0);
-        slideIn.setDuration(ANIMATION_DURATION);
-
-        View view = palette.get(i);
-        view.setVisibility(View.VISIBLE);
-        view.setClickable(true);
-        view.startAnimation(slideIn);
-      }
-    }
-    mOpenPalette = palette;
-  }
-
-  private void closePalette() {
-    if (mOpenPalette != null) {
-      float d = getResources().getDimension(R.dimen.color_width);
-      for (int i = 0; i < mOpenPalette.size(); i++) {
-        View view = mOpenPalette.get(i);
-        Animation slideOut =
-                new TranslateAnimation(0, -d * (i + 1), 0, 0);
-        slideOut.setDuration(ANIMATION_DURATION);
-        view.startAnimation(slideOut);
-        view.setVisibility(View.GONE);
-      }
-    }
-    mOpenPalette = null;
-  }
-
-  private void select(View v, ToolType tool) {
-    // Send the new tool over to the Controller
-    mController.setTool(tool);
-    // Keep track of the ImageView of the tool and highlight it
-    mSelected = (ImageView) v;
-    View selecting = findViewById(R.id.selecting);
-    RelativeLayout.LayoutParams params =
-            new RelativeLayout.LayoutParams(selecting.getLayoutParams());
-
-    params.addRule(RelativeLayout.ALIGN_TOP, v.getId());
-    selecting.setLayoutParams(params);
-    selecting.setVisibility(View.VISIBLE);
-  }
 
   private int getColor(String name, String defType) {
     Resources r = getResources();
@@ -858,8 +558,20 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       case R.id.button_restart:
         retValue = onTouchReset(v, event);
         break;
+      case R.id.settings:
+        startActivity(new Intent(this, ConfigActivity.class));
+        retValue = true;
+        break;
+      case R.id.beginSimulationImageView:
+         startLiveData();
+        retValue = true;
+        break;
+      case R.id.stopSimulationImageView:
+        stopLiveData();
+        retValue = true;
+        break;
       case R.id.world:
-        retValue = onTouchCanvas(v, event);
+        //retValue = onTouchCanvas(v, event);
         break;
       default:
         break;
@@ -875,22 +587,17 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     switch (event.getAction()) {
       case MotionEvent.ACTION_DOWN:
         mUsingTool = true;
-        if (mSelected.getId() == R.id.rigid) {
-          Renderer.getInstance().pauseSimulation();
-        }
+
         break;
       case MotionEvent.ACTION_CANCEL:
       case MotionEvent.ACTION_UP:
         mUsingTool = false;
-        if (mSelected.getId() == R.id.rigid) {
-          Renderer.getInstance().startSimulation();
-        }
+
         break;
       default:
         break;
     }
 
-    closePalette();
     return mController.onTouch(v, event);
   }
 
@@ -902,16 +609,10 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     if (!mUsingTool) {
       switch (event.getAction()) {
         case MotionEvent.ACTION_DOWN:
-          closePalette();
-          select(v, null);
           break;
         case MotionEvent.ACTION_UP:
           Renderer.getInstance().reset();
           mController.reset();
-          // Could refactor out to a deselect() function, but this is
-          // the only place that needs it now.
-          View selecting = findViewById(R.id.selecting);
-          selecting.setVisibility(View.INVISIBLE);
           break;
         default:
           break;
@@ -928,73 +629,14 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
   public void onClickDebug(View v) {
   }
 
-  /**
-   * OnClick method for the color palette.
-   * Called from XML layout.
-   */
-  public void onClickPalette(View v) {
-    if (mUsingTool) {
-      return;
-    }
-    int color = mColorMap.get(v.getId());
-    mController.setColor(color);
-    switch (mSelected.getId()) {
-      case R.id.pencil:
-        mSelected.setImageResource(
-                mPencilImageMap.get(v.getId()));
-        break;
-      case R.id.rigid:
-        mSelected.setImageResource(
-                mRigidImageMap.get(v.getId()));
-        break;
-      case R.id.water:
-        mSelected.setImageResource(
-                mWaterImageMap.get(v.getId()));
-        break;
-    }
-    // Close the palette on choosing a color
-    closePalette();
-  }
+
 
   /**
    * OnClick method for tools.
    * Called from XML layout.
    */
   public void onClickTool(View v) {
-    if (mUsingTool) {
-      return;
-    }
 
-    ToolType tool = null;
-
-    switch (v.getId()) {
-      case R.id.pencil:
-        tool = ToolType.PENCIL;
-        togglePalette(v, mRigidColorPalette);
-        break;
-      case R.id.rigid:
-        tool = ToolType.RIGID;
-        togglePalette(v, mRigidColorPalette);
-        break;
-      case R.id.water:
-        tool = ToolType.WATER;
-        togglePalette(v, mWaterColorPalette);
-        break;
-      case R.id.eraser:
-        tool = ToolType.ERASER;
-        // Always close palettes for non-drawing tools
-        closePalette();
-        break;
-      case R.id.hand:
-        tool = ToolType.MOVE;
-        // Always close palettes for non-drawing tools
-        closePalette();
-        break;
-      default:
-    }
-
-    // Actually select the view
-    select(v, tool);
   }
 
   public void simulateMotionEvent(float x, float y, int eventType) {
@@ -1002,18 +644,15 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     long eventTime = SystemClock.uptimeMillis() + milliOffset;
     int metaState = 0;
     MotionEvent motionEvent = MotionEvent.obtain(downTime, eventTime, eventType, x, y, metaState);
-    mWorldView.dispatchTouchEvent(motionEvent);
+
+    onTouchCanvas(mWorldView, motionEvent);
 
   }
 
   public void simulateDrip() {
     int swipeLength = 30;
-    mDripDelay_ms = mDripDelay_ms - 5;
-    if (mDripDelay_ms == 40) mDripDelay_ms = 65;
-    //Log.d("RCD",String.valueOf(mDripDelay_ms));
-    //Log.d("RCD",String.valueOf(System.currentTimeMillis()));
 
-    //ACTION DOWN
+    //this injects a pseudo event into Liquid fun Paint methods
     simulateMotionEvent(700f, 0, MotionEvent.ACTION_DOWN);
     simulateMotionEvent(700f, swipeLength / 4, MotionEvent.ACTION_MOVE);
     simulateMotionEvent(700f, swipeLength / 2, MotionEvent.ACTION_MOVE);
@@ -1024,12 +663,27 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
   }
 
   public void setDripRatefromMAF(Float MAFrate) {
+    if(MAFrate <= 0){
+      MAFrate = 0f;
+      mDripDelay_ms = 99999;
+      return;
+    }
     int waterDropsPerGram = 20;
     float dripsPerSec = waterDropsPerGram * MAFrate;
     if (dripsPerSec > 1000) dripsPerSec = 1000;
-
     mDripDelay_ms = Math.round(dripsPerSec);
   }
 
+  public void renderSimulation(boolean run){
+    if(run){
+      log("Simulation now Rendering");
+      Renderer.getInstance().startSimulation();
+      mHandler.postDelayed(mRepeat,mDripDelay_ms);
+    }
+    else {
+      Renderer.getInstance().startSimulation();
+      mHandler.removeCallbacks(mRepeat);
+    }
+  }
 
 }

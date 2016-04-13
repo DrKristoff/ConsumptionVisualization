@@ -203,8 +203,8 @@ public class ConfigActivity extends PreferenceActivity implements OnPreferenceCh
         ArrayList<CharSequence> protocolStrings = new ArrayList<>();
         ListPreference listProtocols = (ListPreference) getPreferenceScreen()
                 .findPreference(PROTOCOLS_LIST_KEY);
-        String[] prefKeys = new String[]{ENGINE_DISPLACEMENT_KEY,
-                VOLUMETRIC_EFFICIENCY_KEY, OBD_UPDATE_PERIOD_KEY, MAX_FUEL_ECON_KEY};
+        String[] prefKeys = new String[]{
+                OBD_UPDATE_PERIOD_KEY};
         for (String prefKey : prefKeys) {
             EditTextPreference txtPref = (EditTextPreference) getPreferenceScreen()
                     .findPreference(prefKey);
@@ -216,16 +216,16 @@ public class ConfigActivity extends PreferenceActivity implements OnPreferenceCh
      *
      * TODO This should be read from preferences database
      */
-        ArrayList<ObdCommand> cmds = ObdConfig.getCommands();
-        PreferenceScreen cmdScr = (PreferenceScreen) getPreferenceScreen()
-                .findPreference(COMMANDS_SCREEN_KEY);
-        for (ObdCommand cmd : cmds) {
-            CheckBoxPreference cpref = new CheckBoxPreference(this);
-            cpref.setTitle(cmd.getName());
-            cpref.setKey(cmd.getName());
-            cpref.setChecked(true);
-            cmdScr.addPreference(cpref);
-        }
+//        ArrayList<ObdCommand> cmds = ObdConfig.getCommands();
+//        PreferenceScreen cmdScr = (PreferenceScreen) getPreferenceScreen()
+//                .findPreference(COMMANDS_SCREEN_KEY);
+//        for (ObdCommand cmd : cmds) {
+//            CheckBoxPreference cpref = new CheckBoxPreference(this);
+//            cpref.setTitle(cmd.getName());
+//            cpref.setKey(cmd.getName());
+//            cpref.setChecked(true);
+//            cmdScr.addPreference(cpref);
+//        }
 
     /*
      * Available OBD protocols

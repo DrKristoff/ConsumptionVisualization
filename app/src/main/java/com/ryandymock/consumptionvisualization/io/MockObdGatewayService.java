@@ -9,7 +9,7 @@ import com.github.pires.obd.commands.protocol.SelectProtocolCommand;
 import com.github.pires.obd.commands.protocol.TimeoutCommand;
 import com.github.pires.obd.commands.temperature.AmbientAirTemperatureCommand;
 import com.github.pires.obd.enums.ObdProtocols;
-import com.ryandymock.consumptionvisualization.activity.VisualizeActivity;
+import com.ryandymock.consumptionvisualization.VisualizeActivity;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,7 +30,7 @@ public class MockObdGatewayService extends AbstractGatewayService {
         Log.d(TAG, "Starting " + this.getClass().getName() + " service..");
 
         // Let's configure the connection.
-        Log.d(TAG, "Queing jobs for connection configuration..");
+        Log.d(TAG, "Queueing jobs for connection configuration..");
         queueJob(new ObdCommandJob(new ObdResetCommand()));
         queueJob(new ObdCommandJob(new EchoOffCommand()));
 

@@ -23,7 +23,7 @@ import com.github.pires.obd.exceptions.UnsupportedCommandException;
 import com.google.inject.Inject;
 import com.ryandymock.consumptionvisualization.R;
 import com.ryandymock.consumptionvisualization.activity.ConfigActivity;
-import com.ryandymock.consumptionvisualization.activity.VisualizeActivity;
+import com.ryandymock.consumptionvisualization.VisualizeActivity;
 
 import java.io.File;
 import java.io.IOException;

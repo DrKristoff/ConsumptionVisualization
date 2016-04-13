@@ -8,10 +8,11 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.support.v4.app.NotificationCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 ;
 import com.google.inject.Inject;
-import com.ryandymock.consumptionvisualization.activity.VisualizeActivity;
+import com.ryandymock.consumptionvisualization.VisualizeActivity;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
@@ -44,7 +45,7 @@ public abstract class AbstractGatewayService extends RoboService {
 
     @Override
     public IBinder onBind(Intent intent) {
-        return binder;
+           return binder;
     }
 
     @Override
