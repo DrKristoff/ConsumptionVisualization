@@ -89,12 +89,12 @@ import retrofit.RetrofitError;
 import retrofit.client.Response;
 import roboguice.RoboGuice;
 
-public class VisualizeActivity extends Activity implements OnTouchListener {
+public class VisualizeActivity extends Activity implements View.OnClickListener {
   private static final String TAG = VisualizeActivity.class.getName();
   static String sVersionName;
   private Controller mController;
   private GLSurfaceView mWorldView;
-  private Handler mHandler;
+  private Handler mHandler, mQueueHandler;
   private Runnable mRepeat;
   int milliOffset = 50;
 
@@ -112,14 +112,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
   private static final int REQUEST_ENABLE_BT = 1234;
 
   private static final float MASS_AIR_FLOW_RATIO = 14.7f;
-
-  private RelativeLayout mRootLayout;
-  private SparseIntArray mColorMap;
-  private SparseIntArray mPencilImageMap;
-  private SparseIntArray mRigidImageMap;
-  private SparseIntArray mWaterImageMap;
-  private List<View> mRigidColorPalette;
-  private List<View> mWaterColorPalette;
 
   private TextView liveMAFTextView;
 
@@ -146,19 +138,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
 
     // Set the ToolBar layout
     setContentView(R.layout.tools_layout);
-    mRootLayout = (RelativeLayout) findViewById(R.id.root);
-
-    mColorMap = new SparseIntArray();
-    mPencilImageMap = new SparseIntArray();
-    mRigidImageMap = new SparseIntArray();
-    mWaterImageMap = new SparseIntArray();
-    mRigidColorPalette = new ArrayList<View>();
-    mWaterColorPalette = new ArrayList<View>();
-    String pencilPrefix = "pencil_";
-    String rigidPrefix = "rigid_";
-    String waterPrefix = "water_";
-    String rigidColorPrefix = "color_rigid_";
-    String waterColorPrefix = "color_water_";
 
     liveMAFTextView = (TextView) findViewById(R.id.textViewMAF);
 
@@ -172,12 +151,11 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       bluetoothDefaultIsEnable = btAdapter.isEnabled();
 
     Resources r = getResources();
-    
-    // Set the restart button's listener
-    findViewById(R.id.button_restart).setOnTouchListener(this);
-    findViewById(R.id.beginSimulationImageView).setOnTouchListener(this);
-    findViewById(R.id.stopSimulationImageView).setOnTouchListener(this);
-    findViewById(R.id.settings).setOnTouchListener(this);
+
+    findViewById(R.id.button_restart).setOnClickListener(this);
+    findViewById(R.id.beginSimulationImageView).setOnClickListener(this);
+    findViewById(R.id.stopSimulationImageView).setOnClickListener(this);
+    findViewById(R.id.settings).setOnClickListener(this);
 
     Renderer renderer = Renderer.getInstance();
     Renderer.getInstance().init(this);
@@ -193,7 +171,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
               GLSurfaceView.DEBUG_LOG_GL_CALLS |
                       GLSurfaceView.DEBUG_CHECK_GL_ERROR);
     }
-    mWorldView.setOnTouchListener(this);
+    //mWorldView.setOnClickListener(this);
     // GLSurfaceView#setPreserveEGLContextOnPause() is added in API level 11
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
       setPreserveEGLContextOnPause();
@@ -205,6 +183,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     mController.setTool(ToolType.WATER);
 
     mHandler = new Handler();
+    mQueueHandler = new Handler();
 
     mRepeat = new Runnable() {
       public void run() {
@@ -218,7 +197,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     };
 
     //mQueueHandler.postDelayed(mQueueCommands, ConfigActivity.getObdUpdatePeriod(prefs));
-    mQueueHandler.postDelayed(mQueueCommands, 1000);
+    //mQueueHandler.postDelayed(mQueueCommands, 1000);
 
   }
 
@@ -254,10 +233,8 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
         service.startService();
       } catch (IOException ioe) {
         Log.e(TAG, "Failure Starting live data");
-        log("Failure Starting live data");
-        //btStatusTextView.setText(getString(R.string.status_bluetooth_error_connecting));
         doUnbindService();
-        Toast.makeText(getApplicationContext(),"Failure connecting to Bluetooth Device",Toast.LENGTH_SHORT).show();
+        Toast.makeText(getApplicationContext(),"Please Select a Bluetooth Device",Toast.LENGTH_SHORT).show();
         renderSimulation(false);
       }
     }
@@ -292,8 +269,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     }
   }
 
-  Handler mQueueHandler = new Handler();
-
   private final Runnable mQueueCommands = new Runnable() {
     public void run() {
       Log.d("RCD","mQueueCommands");
@@ -301,8 +276,8 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
         queueCommands();
       }
       // run again in period defined in preferences
-      //mQueueHandler.postDelayed(mQueueCommands, ConfigActivity.getObdUpdatePeriod(prefs));
-      mQueueHandler.postDelayed(mQueueCommands, 1000);
+      mQueueHandler.postDelayed(mQueueCommands, ConfigActivity.getObdUpdatePeriod(prefs));
+      //mQueueHandler.postDelayed(mQueueCommands, 1000);
     }
   };
 
@@ -526,50 +501,8 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     mController.onPause();
     mWorldView.onPause();
     super.onPause();
-    Log.d(TAG, "Pausing..");
+    Log.d(TAG, "Pausing...");
     releaseWakeLockIfHeld();
-  }
-
-
-  private int getColor(String name, String defType) {
-    Resources r = getResources();
-    int id = r.getIdentifier(name, defType, getPackageName());
-    int color = r.getColor(id);
-    // ARGB to ABGR
-    int red = (color >> 16) & 0xFF;
-    int blue = (color << 16) & 0xFF0000;
-    return (color & 0xFF00FF00) | red | blue;
-  }
-
-  /**
-   * OnTouch event handler.
-   */
-  @Override
-  public boolean onTouch(View v, MotionEvent event) {
-    boolean retValue = false;
-    switch (v.getId()) {
-      case R.id.button_restart:
-        retValue = onTouchReset(v, event);
-        break;
-      case R.id.settings:
-        startActivity(new Intent(this, ConfigActivity.class));
-        retValue = true;
-        break;
-      case R.id.beginSimulationImageView:
-         startLiveData();
-        retValue = true;
-        break;
-      case R.id.stopSimulationImageView:
-        stopLiveData();
-        retValue = true;
-        break;
-      case R.id.world:
-        //retValue = onTouchCanvas(v, event);
-        break;
-      default:
-        break;
-    }
-    return retValue;
   }
 
   /**
@@ -592,27 +525,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     }
 
     return mController.onTouch(v, event);
-  }
-
-  /**
-   * OnTouch handler for reset button.
-   * Called from OnTouchListener event.
-   */
-  public boolean onTouchReset(View v, MotionEvent event) {
-    if (!mUsingTool) {
-      switch (event.getAction()) {
-        case MotionEvent.ACTION_DOWN:
-          break;
-        case MotionEvent.ACTION_UP:
-          Renderer.getInstance().reset();
-          mController.reset();
-          break;
-        default:
-          break;
-      }
-    }
-
-    return true;
   }
 
   /**
@@ -657,7 +569,6 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
 
   public void setDripRatefromMAF(Float MAFrate) {
     if(MAFrate <= 0){
-      MAFrate = 0f;
       mDripDelay_ms = 99999;
       return;
     }
@@ -673,7 +584,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       log("Simulation now Rendering");
       Renderer.getInstance().startSimulation();
       mHandler.postDelayed(mRepeat,mDripDelay_ms);
-      mQueueHandler.postDelayed(mQueueCommands,1000);
+      mQueueHandler.postDelayed(mQueueCommands,ConfigActivity.getObdUpdatePeriod(prefs));
     }
     else {
       Renderer.getInstance().startSimulation();
@@ -682,4 +593,28 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     }
   }
 
+  @Override
+  public void onClick(View v) {
+    boolean retValue = false;
+    switch (v.getId()) {
+      case R.id.button_restart:
+        Renderer.getInstance().reset();
+        mController.reset();
+        break;
+      case R.id.settings:
+        startActivity(new Intent(this, ConfigActivity.class));
+        break;
+      case R.id.beginSimulationImageView:
+        startLiveData();
+        break;
+      case R.id.stopSimulationImageView:
+        stopLiveData();
+        break;
+      case R.id.world:
+        break;
+      default:
+        break;
+    }
+
+  }
 }

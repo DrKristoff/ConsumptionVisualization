@@ -26,12 +26,7 @@
         android:layout_height="match_parent"
         android:layout_toRightOf="@+id/palett" />
 
-    <!-- Palette for rigid and wall particles  -->
-
-
-    <!-- Toolbar -->
-
-    <ImageView
+     <ImageView
         android:id="@+id/palett"
         android:contentDescription="@null"
         android:layout_width="@dimen/tool_width"
@@ -39,16 +34,6 @@
         android:layout_alignParentLeft="true"
         android:scaleType="fitXY"
         android:src="@drawable/background_leftpanel" />
-
-
-<!--    <ImageView
-        android:id="@+id/selecting"
-        android:contentDescription="@null"
-        android:layout_width="@dimen/tool_width"
-        android:layout_height="@dimen/tool_height"
-        android:layout_alignParentLeft="true"
-        android:layout_alignTop="@+id/hand"
-        android:src="@drawable/selecting" />-->
 
     <ImageView
         android:id="@+id/button_restart"
@@ -112,7 +97,7 @@
          android:layout_width="wrap_content"
          android:layout_height="wrap_content"
          android:textAppearance="?android:attr/textAppearanceSmall"
-         android:text="LIVE"
+         android:text="OFF"
          android:id="@+id/textViewMAF"
          android:gravity="center_horizontal"
          android:layout_above="@+id/beginSimulationImageView"
