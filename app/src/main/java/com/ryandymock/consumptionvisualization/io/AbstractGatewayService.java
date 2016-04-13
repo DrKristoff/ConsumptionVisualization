@@ -11,7 +11,7 @@ import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 ;
 import com.google.inject.Inject;
-import com.ryandymock.consumptionvisualization.activity.MainActivity;
+import com.ryandymock.consumptionvisualization.activity.VisualizeActivity;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
@@ -96,7 +96,7 @@ public abstract class AbstractGatewayService extends RoboService {
      * Show a notification while this service is running.
      */
     protected void showNotification(String contentTitle, String contentText, int icon, boolean ongoing, boolean notify, boolean vibrate) {
-        final PendingIntent contentIntent = PendingIntent.getActivity(ctx, 0, new Intent(ctx, MainActivity.class), 0);
+        final PendingIntent contentIntent = PendingIntent.getActivity(ctx, 0, new Intent(ctx, VisualizeActivity.class), 0);
         final NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(ctx);
         notificationBuilder.setContentTitle(contentTitle)
                 .setContentText(contentText).setSmallIcon(icon)

@@ -23,7 +23,7 @@ import com.github.pires.obd.exceptions.UnsupportedCommandException;
 import com.google.inject.Inject;
 import com.ryandymock.consumptionvisualization.R;
 import com.ryandymock.consumptionvisualization.activity.ConfigActivity;
-import com.ryandymock.consumptionvisualization.activity.MainActivity;
+import com.ryandymock.consumptionvisualization.activity.VisualizeActivity;
 
 import java.io.File;
 import java.io.IOException;
@@ -139,7 +139,7 @@ public class ObdGatewayService extends AbstractGatewayService {
         queueJob(new ObdCommandJob(new SelectProtocolCommand(ObdProtocols.valueOf(protocol))));
 
         // Job for returning dummy data
-        queueJob(new ObdCommandJob(new AmbientAirTemperatureCommand()));
+        //queueJob(new ObdCommandJob(new AmbientAirTemperatureCommand()));
 
         queueCounter = 0L;
         Log.d(TAG, "Initialization jobs queued.");
@@ -204,10 +204,10 @@ public class ObdGatewayService extends AbstractGatewayService {
 
             if (job != null) {
                 final ObdCommandJob job2 = job;
-                ((MainActivity) ctx).runOnUiThread(new Runnable() {
+                ((VisualizeActivity) ctx).runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        ((MainActivity) ctx).stateUpdate(job2);
+                        ((VisualizeActivity) ctx).stateUpdate(job2);
                     }
                 });
             }

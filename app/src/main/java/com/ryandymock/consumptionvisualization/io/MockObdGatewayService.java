@@ -9,7 +9,7 @@ import com.github.pires.obd.commands.protocol.SelectProtocolCommand;
 import com.github.pires.obd.commands.protocol.TimeoutCommand;
 import com.github.pires.obd.commands.temperature.AmbientAirTemperatureCommand;
 import com.github.pires.obd.enums.ObdProtocols;
-import com.ryandymock.consumptionvisualization.activity.MainActivity;
+import com.ryandymock.consumptionvisualization.activity.VisualizeActivity;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -91,10 +91,10 @@ public class MockObdGatewayService extends AbstractGatewayService {
                 Log.d(TAG, "Job is finished.");
                 job.setState(ObdCommandJob.ObdCommandJobState.FINISHED);
                 final ObdCommandJob job2 = job;
-                ((MainActivity) ctx).runOnUiThread(new Runnable() {
+                ((VisualizeActivity) ctx).runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        ((MainActivity) ctx).stateUpdate(job2);
+                        ((VisualizeActivity) ctx).stateUpdate(job2);
                     }
                 });
 
