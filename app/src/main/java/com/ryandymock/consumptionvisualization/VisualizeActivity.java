@@ -111,6 +111,8 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
   private static final int SAVE_TRIP_NOT_AVAILABLE = 11;
   private static final int REQUEST_ENABLE_BT = 1234;
 
+  private static final float MASS_AIR_FLOW_RATIO = 14.7f;
+
   private RelativeLayout mRootLayout;
   private SparseIntArray mColorMap;
   private SparseIntArray mPencilImageMap;
@@ -170,41 +172,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       bluetoothDefaultIsEnable = btAdapter.isEnabled();
 
     Resources r = getResources();
-    for (int i = 1; i <= r.getInteger(R.integer.num_colors); ++i) {
-
-      int viewId = r.getIdentifier(
-              rigidColorPrefix + i, "id", getPackageName());
-      mColorMap.append(
-              viewId, getColor(rigidColorPrefix + i, "color"));
-      mPencilImageMap.append(
-              viewId, r.getIdentifier(pencilPrefix + i,
-                      "drawable",
-                      getPackageName()));
-      mRigidImageMap.append(
-              viewId, r.getIdentifier(rigidPrefix + i,
-                      "drawable",
-                      getPackageName()));
-      mRigidColorPalette.add(findViewById(viewId));
-
-      viewId = r.getIdentifier(
-              waterColorPrefix + i, "id", getPackageName());
-      mColorMap.append(
-              viewId, getColor(waterColorPrefix + i, "color"));
-      mWaterImageMap.append(
-              viewId, r.getIdentifier(waterPrefix + i,
-                      "drawable",
-                      getPackageName()));
-      mWaterColorPalette.add(findViewById(viewId));
-    }
-
-    // Add the ending piece to both palettes
-    int paletteEndViewId = r.getIdentifier(
-            rigidColorPrefix + "end", "id", getPackageName());
-    mRigidColorPalette.add(findViewById(paletteEndViewId));
-    paletteEndViewId = r.getIdentifier(
-            waterColorPrefix + "end", "id", getPackageName());
-    mWaterColorPalette.add(findViewById(paletteEndViewId));
-
+    
     // Set the restart button's listener
     findViewById(R.id.button_restart).setOnTouchListener(this);
     findViewById(R.id.beginSimulationImageView).setOnTouchListener(this);
@@ -342,7 +310,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     final String cmdName = job.getCommand().getName();
     String cmdResult = "";
     Log.d("RCD",cmdName);
-    Toast.makeText(getApplicationContext(), cmdName, Toast.LENGTH_SHORT).show();
+    //Toast.makeText(getApplicationContext(), cmdName, Toast.LENGTH_SHORT).show();
     final String cmdID = LookUpCommand(cmdName);
     if (cmdName.equals("Mass Air Flow")) {
       String result = job.getCommand().getCalculatedResult();
@@ -350,7 +318,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       try {
         Float floatResult = Float.parseFloat(result);
         setDripRatefromMAF(floatResult);
-        Toast.makeText(getApplicationContext(),"Rate set to " + result,Toast.LENGTH_SHORT).show();
+        //Toast.makeText(getApplicationContext(),"Rate set to " + result,Toast.LENGTH_SHORT).show();
       } catch (Exception e) {
 
       }
@@ -428,7 +396,7 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
   }
 
   private void log(String text) {
-    Toast.makeText(this,text,Toast.LENGTH_SHORT).show();
+    //Toast.makeText(this,text,Toast.LENGTH_SHORT).show();
   }
 
 
@@ -693,8 +661,9 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       mDripDelay_ms = 99999;
       return;
     }
+    Float fuelRate = MAFrate / MASS_AIR_FLOW_RATIO;
     int waterDropsPerGram = 20;
-    float dripsPerSec = waterDropsPerGram * MAFrate;
+    float dripsPerSec = waterDropsPerGram * fuelRate;
     if (dripsPerSec > 1000) dripsPerSec = 1000;
     mDripDelay_ms = Math.round(dripsPerSec);
   }
@@ -704,10 +673,12 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       log("Simulation now Rendering");
       Renderer.getInstance().startSimulation();
       mHandler.postDelayed(mRepeat,mDripDelay_ms);
+      mQueueHandler.postDelayed(mQueueCommands,1000);
     }
     else {
       Renderer.getInstance().startSimulation();
       mHandler.removeCallbacks(mRepeat);
+      mQueueHandler.removeCallbacks(mQueueCommands);
     }
   }
 
