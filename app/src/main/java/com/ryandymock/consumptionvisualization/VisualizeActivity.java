@@ -249,6 +249,9 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
       }
     };
 
+    //mQueueHandler.postDelayed(mQueueCommands, ConfigActivity.getObdUpdatePeriod(prefs));
+    mQueueHandler.postDelayed(mQueueCommands, 1000);
+
   }
 
 
@@ -312,6 +315,28 @@ public class VisualizeActivity extends Activity implements OnTouchListener {
     }
     return txt;
   }
+
+  private void queueCommands() {
+    if (isServiceBound) {
+      for (ObdCommand Command : ObdConfig.getCommands()) {
+        service.queueJob(new ObdCommandJob(Command));
+      }
+    }
+  }
+
+  Handler mQueueHandler = new Handler();
+
+  private final Runnable mQueueCommands = new Runnable() {
+    public void run() {
+      Log.d("RCD","mQueueCommands");
+      if (service != null && service.isRunning() && service.queueEmpty()) {
+        queueCommands();
+      }
+      // run again in period defined in preferences
+      //mQueueHandler.postDelayed(mQueueCommands, ConfigActivity.getObdUpdatePeriod(prefs));
+      mQueueHandler.postDelayed(mQueueCommands, 1000);
+    }
+  };
 
   public void stateUpdate(final ObdCommandJob job) {
     final String cmdName = job.getCommand().getName();

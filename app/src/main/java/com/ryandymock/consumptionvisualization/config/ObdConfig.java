@@ -84,7 +84,7 @@ public final class ObdConfig {
         //cmds.add(new EngineCoolantTemperatureCommand());
 
         // Misc
-        cmds.add(new SpeedCommand());
+        //cmds.add(new SpeedCommand());
 
 
         return cmds;
