@@ -105,4 +105,45 @@
     <string name="pref_dev_email_title">Developer Email</string>
     <string name="pref_dev_email_summary">Logs will be email to the address</string>
     <string name="text_noerrors">There were no errors found.!</string>
+
+    <string name="button_restart">Erase everything</string>
+    <string name="hand">Drag</string>
+    <string name="eraser">Erase</string>
+    <string name="water">Watery paint</string>
+    <string name="rigid">Dry paint</string>
+    <string name="pencil">Sticky paint</string>
+
+    <!-- Color palettes -->
+    <string name="color_rigid_1">Honey</string>
+    <string name="color_rigid_2">Vermilion</string>
+    <string name="color_rigid_3">Crimson</string>
+    <string name="color_rigid_4">Mahogany</string>
+    <string name="color_rigid_5">Rose</string>
+    <string name="color_rigid_6">Petunia</string>
+    <string name="color_rigid_7">Violet</string>
+    <string name="color_rigid_8">Sapphire</string>
+    <string name="color_rigid_9">Grass</string>
+    <string name="color_rigid_10">Turquoise</string>
+    <string name="color_rigid_11">Sable</string>
+    <string name="color_rigid_12">Slate</string>
+
+    <string name="color_water_1">Lilac</string>
+    <string name="color_water_2">Periwinkle</string>
+    <string name="color_water_3">Cornflower</string>
+    <string name="color_water_4">Ocean</string>
+    <string name="color_water_5">Cobalt</string>
+    <string name="color_water_6">Aqua</string>
+    <string name="color_water_7">Teal</string>
+    <string name="color_water_8">Seafoam</string>
+    <string name="color_water_9">Mist</string>
+    <string name="color_water_10">Lime</string>
+    <string name="color_water_11">Daffodil</string>
+    <string name="color_water_12">Lemon</string>
+
+    <string name="color_prefix">color_</string>
+    <string name="pencil_prefix">pencil_</string>
+    <string name="rigid_prefix">rigid_</string>
+    <string name="water_prefix">water_</string>
+    <string name="rigid_color_prefix">color_rigid_</string>
+    <string name="water_color_prefix">color_water_</string>
 </resources>

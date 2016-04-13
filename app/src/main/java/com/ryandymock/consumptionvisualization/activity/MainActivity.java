@@ -95,7 +95,6 @@ public class MainActivity extends AppCompatActivity implements ObdProgressListen
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        setContentView(R.layout.activity_main);
 
         powerManager =
                 (PowerManager)this.getSystemService(Context.POWER_SERVICE);
@@ -354,7 +353,7 @@ public class MainActivity extends AppCompatActivity implements ObdProgressListen
     }
 
     private void log(String text){
-        Toast.makeText(this,text,Toast.LENGTH_SHORT).show();
+        //Toast.makeText(this,text,Toast.LENGTH_SHORT).show();
     }
 
     public boolean onCreateOptionsMenu(Menu menu) {
