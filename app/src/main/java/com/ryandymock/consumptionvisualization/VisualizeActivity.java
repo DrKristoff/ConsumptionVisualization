@@ -98,7 +98,22 @@ public class VisualizeActivity extends Activity {
   private Runnable mRepeat;
   int milliOffset = 50;
 
-  private static final int NO_BLUETOOTH_ID = 0;
+  // Mapping from ImageView to actual RGB values
+  private SparseIntArray mColorMap;
+  // Mapping from ImageView of color palette to the images for Tools
+  private SparseIntArray mPencilImageMap;
+  private SparseIntArray mRigidImageMap;
+  private SparseIntArray mWaterImageMap;
+  // List of ImageView of color palettes
+  private List<View> mRigidColorPalette;
+  private List<View> mWaterColorPalette;
+
+  // The image view of the selected tool
+  private ImageView mSelected;
+  // The current open palette
+  private List<View> mOpenPalette = null;
+
+    private static final int NO_BLUETOOTH_ID = 0;
   private static final int BLUETOOTH_DISABLED = 1;
   private static final int START_LIVE_DATA = 2;
   private static final int STOP_LIVE_DATA = 3;
@@ -153,7 +168,61 @@ public class VisualizeActivity extends Activity {
     if (btAdapter != null)
       bluetoothDefaultIsEnable = btAdapter.isEnabled();
 
+    mColorMap = new SparseIntArray();
+    mPencilImageMap = new SparseIntArray();
+    mRigidImageMap = new SparseIntArray();
+    mWaterImageMap = new SparseIntArray();
+    mRigidColorPalette = new ArrayList<View>();
+    mWaterColorPalette = new ArrayList<View>();
+    String pencilPrefix = "pencil_";
+    String rigidPrefix = "rigid_";
+    String waterPrefix = "water_";
+    String rigidColorPrefix = "color_rigid_";
+    String waterColorPrefix = "color_water_";
+
     Resources r = getResources();
+    // Look up all the different colors
+    for (int i = 1; i <= r.getInteger(R.integer.num_colors); ++i) {
+      // Get color palette for rigid/pencil tools
+      // 1) Add color RGB values to mColorMap
+      // 2) Add appropriate images for tool
+      // 3) Add the color palette view to the color palette list
+      int viewId = r.getIdentifier(
+              rigidColorPrefix + i, "id", getPackageName());
+      mColorMap.append(
+              viewId, getColor(rigidColorPrefix + i, "color"));
+      mPencilImageMap.append(
+              viewId, r.getIdentifier(pencilPrefix + i,
+                      "drawable",
+                      getPackageName()));
+      mRigidImageMap.append(
+              viewId, r.getIdentifier(rigidPrefix + i,
+                      "drawable",
+                      getPackageName()));
+      mRigidColorPalette.add(findViewById(viewId));
+
+      // Get color palette for water tool
+      // 1) Add color RGB values to mColorMap
+      // 2) Add appropriate images for tool
+      // 3) Add the color palette view to the color palette list
+      viewId = r.getIdentifier(
+              waterColorPrefix + i, "id", getPackageName());
+      mColorMap.append(
+              viewId, getColor(waterColorPrefix + i, "color"));
+      mWaterImageMap.append(
+              viewId, r.getIdentifier(waterPrefix + i,
+                      "drawable",
+                      getPackageName()));
+      mWaterColorPalette.add(findViewById(viewId));
+    }
+
+    // Add the ending piece to both palettes
+    int paletteEndViewId = r.getIdentifier(
+            rigidColorPrefix + "end", "id", getPackageName());
+    mRigidColorPalette.add(findViewById(paletteEndViewId));
+    paletteEndViewId = r.getIdentifier(
+            waterColorPrefix + "end", "id", getPackageName());
+    mWaterColorPalette.add(findViewById(paletteEndViewId));
 
     Renderer renderer = Renderer.getInstance();
     Renderer.getInstance().init(this);
@@ -175,6 +244,14 @@ public class VisualizeActivity extends Activity {
 
     mWorldView.setRenderer(renderer);
     renderer.startSimulation();
+
+    // Set default tool colors
+    Tool.getTool(ToolType.PENCIL).setColor(
+            getColor(getString(R.string.default_pencil_color), "color"));
+    Tool.getTool(ToolType.RIGID).setColor(
+            getColor(getString(R.string.default_rigid_color), "color"));
+    Tool.getTool(ToolType.WATER).setColor(
+            getColor(getString(R.string.default_water_color), "color"));
 
     mController.setTool(ToolType.WATER);
 
@@ -210,7 +287,6 @@ public class VisualizeActivity extends Activity {
           case R.id.button_restart:
             Renderer.getInstance().reset();
             mController.reset();
-            mController.notify();
             break;
           case R.id.settings:
             startActivity(new Intent(getApplicationContext(), ConfigActivity.class));
@@ -236,7 +312,7 @@ public class VisualizeActivity extends Activity {
     findViewById(R.id.stopSimulationImageView).setOnClickListener(mClickListener);
     findViewById(R.id.settings).setOnClickListener(mClickListener);
 
-    mWorldView.setOnTouchListener(mTouchListener);
+    //mWorldView.setOnTouchListener(mTouchListener);
 
   }
 
@@ -256,6 +332,16 @@ public class VisualizeActivity extends Activity {
 
   private PowerManager.WakeLock wakeLock = null;
   private boolean preRequisites = true;
+
+  private int getColor(String name, String defType) {
+    Resources r = getResources();
+    int id = r.getIdentifier(name, defType, getPackageName());
+    int color = r.getColor(id);
+    // ARGB to ABGR
+    int red = (color >> 16) & 0xFF;
+    int blue = (color << 16) & 0xFF0000;
+    return (color & 0xFF00FF00) | red | blue;
+  }
 
   private ServiceConnection serviceConn = new ServiceConnection() {
     @Override
@@ -283,9 +369,6 @@ public class VisualizeActivity extends Activity {
       return super.clone();
     }
 
-    // This method is *only* called when the connection to the service is lost unexpectedly
-    // and *not* when the client unbinds (http://developer.android.com/guide/components/bound-services.html)
-    // So the isServiceBound attribute should also be set to false when we unbind from the service.
     @Override
     public void onServiceDisconnected(ComponentName className) {
       Log.d(TAG, className.toString() + " service is unbound");
@@ -332,7 +415,7 @@ public class VisualizeActivity extends Activity {
       try {
         Float floatResult = Float.parseFloat(result);
         setDripRatefromMAF(floatResult);
-        //Toast.makeText(getApplicationContext(),"Rate set to " + result,Toast.LENGTH_SHORT).show();
+
       } catch (Exception e) {
 
       }
@@ -608,7 +691,9 @@ public class VisualizeActivity extends Activity {
 
   public void setDripRatefromMAF(Float MAFrate) {
     if(MAFrate <= 0){
-      mDripDelay_ms = 99999;
+      mDripDelay_ms = 200;
+      updateDripRate();
+      Toast.makeText(getApplicationContext(),"Rate set to " + mDripDelay_ms,Toast.LENGTH_SHORT).show();
       return;
     }
     Float fuelRate = MAFrate / MASS_AIR_FLOW_RATIO;
@@ -616,13 +701,15 @@ public class VisualizeActivity extends Activity {
     float dripsPerSec = waterDropsPerGram * fuelRate;
     if (dripsPerSec > 1000) dripsPerSec = 1000;
     mDripDelay_ms = Math.round(dripsPerSec);
+    updateDripRate();
+    Toast.makeText(getApplicationContext(),"Rate set to " + mDripDelay_ms,Toast.LENGTH_SHORT).show();
   }
 
   public void renderSimulation(boolean run){
     if(run){
       log("Simulation now Rendering");
       Renderer.getInstance().startSimulation();
-      mHandler.postDelayed(mRepeat,mDripDelay_ms);
+      updateDripRate();
       mQueueHandler.postDelayed(mQueueCommands,ConfigActivity.getObdUpdatePeriod(prefs));
     }
     else {
@@ -630,6 +717,12 @@ public class VisualizeActivity extends Activity {
       mHandler.removeCallbacks(mRepeat);
       mQueueHandler.removeCallbacks(mQueueCommands);
     }
+  }
+
+  public void updateDripRate(){
+    mHandler.removeCallbacks(mRepeat);
+    mHandler.postDelayed(mRepeat,mDripDelay_ms);
+
   }
 
 }

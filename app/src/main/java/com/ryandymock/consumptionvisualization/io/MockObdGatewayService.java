@@ -61,7 +61,7 @@ public class MockObdGatewayService extends AbstractGatewayService {
      * Runs the queue until the service is stopped
      */
     protected void executeQueue() {
-        Log.d(TAG, "Executing queue..");
+        /*Log.d(TAG, "Executing queue..");
         while (!Thread.currentThread().isInterrupted()) {
             ObdCommandJob job = null;
             try {
@@ -99,7 +99,7 @@ public class MockObdGatewayService extends AbstractGatewayService {
                 });
 
             }
-        }
+        }*/
     }
 
 
