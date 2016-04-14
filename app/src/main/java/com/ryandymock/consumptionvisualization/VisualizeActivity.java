@@ -20,46 +20,30 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
 import android.graphics.PixelFormat;
-import android.location.GpsStatus;
-import android.location.Location;
-import android.location.LocationManager;
-import android.location.LocationProvider;
 import android.opengl.GLSurfaceView;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.appcompat.BuildConfig;
 import android.util.Log;
 import android.util.SparseIntArray;
-import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
-import android.view.ViewGroup;
-import android.view.animation.Animation;
-import android.view.animation.TranslateAnimation;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
-import android.widget.TableRow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -71,22 +55,15 @@ import com.ryandymock.consumptionvisualization.io.AbstractGatewayService;
 import com.ryandymock.consumptionvisualization.io.MockObdGatewayService;
 import com.ryandymock.consumptionvisualization.io.ObdCommandJob;
 import com.ryandymock.consumptionvisualization.io.ObdGatewayService;
-import com.ryandymock.consumptionvisualization.net.ObdReading;
-import com.ryandymock.consumptionvisualization.net.ObdService;
 import com.ryandymock.consumptionvisualization.tool.Tool;
 import com.ryandymock.consumptionvisualization.tool.Tool.ToolType;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import retrofit.RestAdapter;
-import retrofit.RetrofitError;
-import retrofit.client.Response;
 import roboguice.RoboGuice;
 
 public class VisualizeActivity extends Activity {
@@ -107,6 +84,8 @@ public class VisualizeActivity extends Activity {
   // List of ImageView of color palettes
   private List<View> mRigidColorPalette;
   private List<View> mWaterColorPalette;
+
+  private float mWaterDropsPerS = 0;
 
   // The image view of the selected tool
   private ImageView mSelected;
@@ -411,7 +390,6 @@ public class VisualizeActivity extends Activity {
     final String cmdID = LookUpCommand(cmdName);
     if (cmdName.equals("Mass Air Flow")) {
       String result = job.getCommand().getCalculatedResult();
-      liveMAFTextView.setText(result);
       try {
         Float floatResult = Float.parseFloat(result);
         setDripRatefromMAF(floatResult);
@@ -691,18 +669,17 @@ public class VisualizeActivity extends Activity {
 
   public void setDripRatefromMAF(Float MAFrate) {
     if(MAFrate <= 0){
-      mDripDelay_ms = 200;
+      mDripDelay_ms = 99999;
+      mWaterDropsPerS = 0;
       updateDripRate();
-      Toast.makeText(getApplicationContext(),"Rate set to " + mDripDelay_ms,Toast.LENGTH_SHORT).show();
       return;
     }
     Float fuelRate = MAFrate / MASS_AIR_FLOW_RATIO;
     int waterDropsPerGram = 20;
-    float dripsPerSec = waterDropsPerGram * fuelRate;
-    if (dripsPerSec > 1000) dripsPerSec = 1000;
-    mDripDelay_ms = Math.round(dripsPerSec);
+    mWaterDropsPerS = waterDropsPerGram * fuelRate;
+    if (mWaterDropsPerS > 1000) mWaterDropsPerS = 1000;
+    mDripDelay_ms = Math.round(1000/mWaterDropsPerS);
     updateDripRate();
-    Toast.makeText(getApplicationContext(),"Rate set to " + mDripDelay_ms,Toast.LENGTH_SHORT).show();
   }
 
   public void renderSimulation(boolean run){
@@ -722,6 +699,8 @@ public class VisualizeActivity extends Activity {
   public void updateDripRate(){
     mHandler.removeCallbacks(mRepeat);
     mHandler.postDelayed(mRepeat,mDripDelay_ms);
+
+    liveMAFTextView.setText(String.valueOf(mWaterDropsPerS) + " drops per second");
 
   }
 
