@@ -89,7 +89,7 @@ import retrofit.RetrofitError;
 import retrofit.client.Response;
 import roboguice.RoboGuice;
 
-public class VisualizeActivity extends Activity implements View.OnClickListener {
+public class VisualizeActivity extends Activity {
   private static final String TAG = VisualizeActivity.class.getName();
   static String sVersionName;
   private Controller mController;
@@ -123,18 +123,21 @@ public class VisualizeActivity extends Activity implements View.OnClickListener 
   private SharedPreferences prefs;
 
   public Map<String, String> commandResult = new HashMap<String, String>();
-  boolean mGpsIsStarted = false;
-  private Location mLastLocation;
+
+  private OnTouchListener mTouchListener;
+  private View.OnClickListener mClickListener;
 
   static {
 
-    System.loadLibrary("liquidfun_jni");
-    System.loadLibrary("liquidfun");
+
   }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+
+    System.loadLibrary("liquidfun_jni");
+    System.loadLibrary("liquidfun");
 
     // Set the ToolBar layout
     setContentView(R.layout.tools_layout);
@@ -152,11 +155,6 @@ public class VisualizeActivity extends Activity implements View.OnClickListener 
 
     Resources r = getResources();
 
-    findViewById(R.id.button_restart).setOnClickListener(this);
-    findViewById(R.id.beginSimulationImageView).setOnClickListener(this);
-    findViewById(R.id.stopSimulationImageView).setOnClickListener(this);
-    findViewById(R.id.settings).setOnClickListener(this);
-
     Renderer renderer = Renderer.getInstance();
     Renderer.getInstance().init(this);
     mController = new Controller(this);
@@ -171,14 +169,12 @@ public class VisualizeActivity extends Activity implements View.OnClickListener 
               GLSurfaceView.DEBUG_LOG_GL_CALLS |
                       GLSurfaceView.DEBUG_CHECK_GL_ERROR);
     }
-    //mWorldView.setOnClickListener(this);
-    // GLSurfaceView#setPreserveEGLContextOnPause() is added in API level 11
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-      setPreserveEGLContextOnPause();
-    }
+    //
+  setPreserveEGLContextOnPause();
+
 
     mWorldView.setRenderer(renderer);
-    //renderer.startSimulation();
+    renderer.startSimulation();
 
     mController.setTool(ToolType.WATER);
 
@@ -196,8 +192,51 @@ public class VisualizeActivity extends Activity implements View.OnClickListener 
       }
     };
 
-    //mQueueHandler.postDelayed(mQueueCommands, ConfigActivity.getObdUpdatePeriod(prefs));
-    //mQueueHandler.postDelayed(mQueueCommands, 1000);
+    mTouchListener = new OnTouchListener(){
+
+      @Override
+      public boolean onTouch(View v, MotionEvent event) {
+        if(v.getId()==R.id.world){
+          return onTouchCanvas(v, event);
+        }
+        return false;
+      }
+    };
+
+    mClickListener = new View.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        switch (v.getId()) {
+          case R.id.button_restart:
+            Renderer.getInstance().reset();
+            mController.reset();
+            mController.notify();
+            break;
+          case R.id.settings:
+            startActivity(new Intent(getApplicationContext(), ConfigActivity.class));
+            break;
+          case R.id.beginSimulationImageView:
+            startLiveData();
+            break;
+          case R.id.stopSimulationImageView:
+            stopLiveData();
+            break;
+          case R.id.world:
+            break;
+          default:
+            break;
+        }
+
+
+      }
+    };
+
+    findViewById(R.id.button_restart).setOnClickListener(mClickListener);
+    findViewById(R.id.beginSimulationImageView).setOnClickListener(mClickListener);
+    findViewById(R.id.stopSimulationImageView).setOnClickListener(mClickListener);
+    findViewById(R.id.settings).setOnClickListener(mClickListener);
+
+    mWorldView.setOnTouchListener(mTouchListener);
 
   }
 
@@ -378,7 +417,7 @@ public class VisualizeActivity extends Activity implements View.OnClickListener 
   private void startLiveData() {
     Log.d(TAG, "Starting live data..");
     Toast.makeText(getApplicationContext(),"Attempting connection to Bluetooth Device",Toast.LENGTH_SHORT).show();
-    //renderSimulation(true);
+    renderSimulation(true);
 
     //tl.removeAllViews(); //start fresh
     doBindService();
@@ -593,28 +632,4 @@ public class VisualizeActivity extends Activity implements View.OnClickListener 
     }
   }
 
-  @Override
-  public void onClick(View v) {
-    boolean retValue = false;
-    switch (v.getId()) {
-      case R.id.button_restart:
-        Renderer.getInstance().reset();
-        mController.reset();
-        break;
-      case R.id.settings:
-        startActivity(new Intent(this, ConfigActivity.class));
-        break;
-      case R.id.beginSimulationImageView:
-        startLiveData();
-        break;
-      case R.id.stopSimulationImageView:
-        stopLiveData();
-        break;
-      case R.id.world:
-        break;
-      default:
-        break;
-    }
-
-  }
 }
