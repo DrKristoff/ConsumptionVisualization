@@ -106,6 +106,7 @@ public class VisualizeActivity extends Activity {
   private static final int REQUEST_ENABLE_BT = 1234;
 
   private static final float MASS_AIR_FLOW_RATIO = 14.7f;
+  private static final float DROPS_PER_CANVAS_DRAW = 3;
 
   private TextView liveMAFTextView;
 
@@ -655,7 +656,7 @@ public class VisualizeActivity extends Activity {
   }
 
   public void simulateDrip() {
-    int swipeLength = 30;
+    int swipeLength = 10;
 
     //this injects a pseudo event into Liquid fun Paint methods
     simulateMotionEvent(700f, 0, MotionEvent.ACTION_DOWN);
@@ -674,9 +675,9 @@ public class VisualizeActivity extends Activity {
       updateDripRate();
       return;
     }
-    Float fuelRate = MAFrate / MASS_AIR_FLOW_RATIO;
-    int waterDropsPerGram = 20;
-    mWaterDropsPerS = waterDropsPerGram * fuelRate;
+    Float fuelRate = MAFrate / MASS_AIR_FLOW_RATIO;  //calculate fuel rate as a ratio of MAF ratio
+    int waterDropsPerGram = 20;  //convert to drops
+    mWaterDropsPerS = waterDropsPerGram * fuelRate/DROPS_PER_CANVAS_DRAW;
     if (mWaterDropsPerS > 1000) mWaterDropsPerS = 1000;
     mDripDelay_ms = Math.round(1000/mWaterDropsPerS);
     updateDripRate();
@@ -700,7 +701,9 @@ public class VisualizeActivity extends Activity {
     mHandler.removeCallbacks(mRepeat);
     mHandler.postDelayed(mRepeat,mDripDelay_ms);
 
-    liveMAFTextView.setText(String.valueOf(mWaterDropsPerS) + " drops per second");
+    String formattedText = String.format("%.2f", mWaterDropsPerS);
+
+    liveMAFTextView.setText(formattedText + " drops per second");
 
   }
 
